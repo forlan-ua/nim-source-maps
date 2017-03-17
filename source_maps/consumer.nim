@@ -2,6 +2,8 @@ import json
 import strutils
 import sequtils
 import tables
+import algorithm
+import times
 
 import moz_base64vlq
 
@@ -32,8 +34,8 @@ type
 
     SourceMapConsumer* = ref object of RootObj
         map*: SourceMap
-        originalMappings*: seq[ptr Mapping]
-        generatedMappings*: seq[ptr Mapping]
+        originalMappings*: seq[Mapping]
+        generatedMappings*: seq[Mapping]
 
 
 proc `$`*(self: Mapping): string =
@@ -193,7 +195,24 @@ proc initSourceMap*(sm: JsonNode): auto =
 
 
 proc parse*(self: SourceMapConsumer) =
+    if not self.map.parsedMappings.isNil:
+        return
+
     self.map.parse()
+
+    self.generatedMappings = self.map.parsedMappings.sorted(
+        proc (x, y: Mapping): int =
+            result = x.generatedLine - y.generatedLine
+            if result == 0:
+                result = x.generatedColumn - y.generatedColumn
+    )
+
+    self.originalMappings = self.map.parsedMappings.sorted(
+        proc (x, y: Mapping): int =
+            result = x.originalLine - y.originalLine
+            if result == 0:
+                result = x.originalColumn - y.originalColumn
+    )
 
 
 proc newSourceMapConsumer*(sm: JsonNode, parse=true): auto =
